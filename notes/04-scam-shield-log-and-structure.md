@@ -63,8 +63,19 @@ The actual point of this step: understanding *why* you save a model at all. With
 
 Added `tests/test_predict.py` — 5 focused pytest cases (one obvious example per class, plus the genuinely hard case: a legit message that mentions "CRA" for real, not as a scam). All 5 pass. Deliberately kept it small — not a giant edge-case suite, just enough to catch a real regression if the model or dataset changes later.
 
+## Turning it into an MCP server
+
+Wanted the classifier to be usable directly inside Claude, not just from a script — so it needed to become an MCP tool. Two pieces:
+
+**`src/classifier.py`** — pulled the inference logic out of `predict.py` into a reusable function so a long-running server process doesn't reload the model on every call. Model + vectorizer are loaded once at module level (outside any function); `classify(text)` just reuses them. Learned the hard way that `model.predict()` and `model.classes_` return `numpy` types (`np.str_`, `np.float64`), not plain Python `str`/`float` — harmless in a script, but breaks JSON serialization, which an MCP tool needs. Wrapped the label in `str(...)` and each confidence value in `float(...)`.
+
+**`server/mcp_server.py`** — a thin wrapper using the `mcp` SDK (v2: `MCPServer`, not the older `FastMCP` name most tutorials still show). One tool, `classify_message`, registered with the `@mcp.tool()` decorator — first real use of a decorator in this project. The docstring on that function is what Claude actually reads to know what the tool does, so it has to describe it clearly, not just label it.
+
+Smoke-tested by importing the module directly and calling `classify_message()` without starting the stdio server loop — confirmed it returns a clean, JSON-safe dict (`{'label': 'fake_cra', 'confidence': {...}}`).
+
 ## What's still open
 
+- Wire up `.mcp.json` so Claude Code can actually discover and call `classify_message` from inside a real chat, then verify it end-to-end
 - Stretch goal: an LLM-generated plain-English explanation of *why* a message got flagged, reusing the Groq-call pattern from the Nik-Blog Assistant RAG chatbot
 
 Related: [Pipeline overview](01-pipeline-overview.md) · [TF-IDF and Naive Bayes](02-tfidf-and-naive-bayes.md) · [Dataset and results](03-dataset-and-results.md)
