@@ -73,9 +73,28 @@ Wanted the classifier to be usable directly inside Claude, not just from a scrip
 
 Smoke-tested by importing the module directly and calling `classify_message()` without starting the stdio server loop — confirmed it returns a clean, JSON-safe dict (`{'label': 'fake_cra', 'confidence': {...}}`).
 
+**The import bug that only shows up when a script runs standalone:** `server/mcp_server.py` failed with `ModuleNotFoundError: No module named 'src'` the first time it ran through `.mcp.json`, even though the smoke test worked fine. Reason: running a script directly (`python3 server/mcp_server.py`) only adds that script's own folder (`server/`) to Python's import path, not the project root — unlike the smoke test, which imported the module from the project root so Python's own cwd-based path already covered it. Fixed by explicitly inserting the project root into `sys.path` at the top of `mcp_server.py`, using the same `script_dir` idea as before, one level up.
+
+## Connected it to Claude Code — end to end, for real
+
+After fixing the import bug, opened a fresh Claude Code session inside `~/Desktop/Nikan/scamshield-ca` (`.mcp.json` only loads at session start) and tested it live.
+
+![Claude Code discovers the classify_message tool](../assets/mcp-tool-discovered.png)
+
+Claude found the tool automatically and showed its description (the docstring from `server/mcp_server.py`) and its one parameter (`text: string`).
+
+![Claude asks for approval before calling the tool](../assets/mcp-approval-prompt.png)
+
+Pasted a scam message and asked "is this a scam?" — Claude asked for approval before calling an MCP tool for the first time in this project, a real safety behavior, not something I had to build myself.
+
+![The classification result, with Claude's own explanation on top](../assets/mcp-classification-result.png)
+
+Result: `fake_etransfer` at 97.8% confidence, and underneath it Claude wrote out the actual red flags (lookalike domain, urgency pressure, unsolicited money).
+
+**Important distinction — the model didn't write that explanation.** `classify()` only ever returns `{"label": ..., "confidence": {...}}` — a bare label and four numbers, nothing else. The red-flag explanation came from Claude itself, reasoning over that raw result with its own general knowledge, not from the Naive Bayes model. If someone asks in an interview "how does your model explain its reasoning?", the honest answer is: it doesn't — the trained model only classifies; any natural-language explanation is a separate LLM layer sitting on top of it. This is exactly the "stretch goal" explanation layer noted below, except it happened for free the moment the tool was wired into an LLM client, instead of needing to be coded by hand.
+
 ## What's still open
 
-- Wire up `.mcp.json` so Claude Code can actually discover and call `classify_message` from inside a real chat, then verify it end-to-end
-- Stretch goal: an LLM-generated plain-English explanation of *why* a message got flagged, reusing the Groq-call pattern from the Nik-Blog Assistant RAG chatbot
+- Stretch goal: build the explanation layer as an actual feature of the tool itself (e.g. `classify_message` returning its own red-flag reasoning, not relying on whatever LLM happens to be calling it) — reusing the Groq-call pattern from the Nik-Blog Assistant RAG chatbot
 
 Related: [Pipeline overview](01-pipeline-overview.md) · [TF-IDF and Naive Bayes](02-tfidf-and-naive-bayes.md) · [Dataset and results](03-dataset-and-results.md)

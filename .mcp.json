@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "scamshield-ca": {
+      "command": "/Users/kuroko/Desktop/Nikan/scamshield-ca/.venv/bin/python3",
+      "args": ["server/mcp_server.py"],
+      "cwd": "/Users/kuroko/Desktop/Nikan/scamshield-ca"
+    }
+  }
+}
