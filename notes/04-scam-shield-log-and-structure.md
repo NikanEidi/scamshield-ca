@@ -55,9 +55,16 @@ Across all three versions, `legit` was the class that struggled — not because 
 
 That's the clearest proof the dataset growth actually mattered, not just the raw accuracy number going up.
 
+## predict.py and a focused test suite
+
+Wrote `src/predict.py`: load the saved model + vectorizer with `joblib.load()`, `transform()` (not `fit_transform()`) a new message with that same vectorizer, then `model.predict()` + `model.predict_proba()` for the class and the confidence per class. Hit the same `os.path` relative-path bug a third time on the model/vectorizer paths and fixed it myself the same way as before.
+
+The actual point of this step: understanding *why* you save a model at all. Without `joblib.dump`/`joblib.load`, classifying one new message means re-running the entire ~50-line training pipeline (load data, split, vectorize, train) every single time — train once, save to disk, then every future run just loads it. That clicked fully, not just the syntax.
+
+Added `tests/test_predict.py` — 5 focused pytest cases (one obvious example per class, plus the genuinely hard case: a legit message that mentions "CRA" for real, not as a scam). All 5 pass. Deliberately kept it small — not a giant edge-case suite, just enough to catch a real regression if the model or dataset changes later.
+
 ## What's still open
 
-- `src/predict.py` — load the saved model + vectorizer and run inference on a brand-new message cleanly, without re-running the whole training pipeline
 - Stretch goal: an LLM-generated plain-English explanation of *why* a message got flagged, reusing the Groq-call pattern from the Nik-Blog Assistant RAG chatbot
 
 Related: [Pipeline overview](01-pipeline-overview.md) · [TF-IDF and Naive Bayes](02-tfidf-and-naive-bayes.md) · [Dataset and results](03-dataset-and-results.md)
