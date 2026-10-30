@@ -1,11 +1,3 @@
-# TODO (Nikan, teaching session): build the inference script here.
-#
-# Steps:
-#   1. Load the saved model + vectorizer from models/ with joblib
-#   2. Take a new message (hardcoded string for now, or input())
-#   3. Vectorize it with the SAME vectorizer used in training
-#   4. Call model.predict() and model.predict_proba()
-#   5. Print the predicted class and the confidence per class
 import joblib
 import os
 

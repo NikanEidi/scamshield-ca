@@ -5,10 +5,13 @@ so we get a large, diverse dataset without hand-typing every row.
 
 Templates are based on patterns documented by real Canadian sources
 (CIBC fraud-examples page, Canada.ca CRA scam alerts, Canada Post's
-phishing guidance) — e.g. the "reply INFO/YES/HELP" call-to-action,
-cashback-via-e-Transfer scams, "incomplete address" Canada Post texts,
-and CRA "account error, text HELP" scams — not copied verbatim, but
-the same structural patterns real scammers use.
+phishing guidance, TD Bank's account-suspension scam warning, RBC's
+e-Transfer overpayment scam writeup) — e.g. the "reply INFO/YES/HELP"
+call-to-action, cashback-via-e-Transfer scams, "incomplete address"
+Canada Post texts, CRA "account error, text HELP" scams, fake bank
+account-suspension alerts, and the marketplace "I overpaid you by
+accident, send the difference back" e-Transfer scam — not copied
+verbatim, but the same structural patterns real scammers use.
 
 random_state is fixed (SEED) so re-running this script always produces
 the exact same dataset -- reproducible, like train_test_split's random_state.
@@ -20,13 +23,14 @@ import random
 SEED = 42
 random.seed(SEED)
 
-PER_CLASS = 250  # target rows per class (3 scam classes + legit = ~1000 total)
+PER_CLASS = 250  # target rows per class (4 scam classes + legit = ~1250 total)
 
 BANKS = ["RBC", "TD", "Scotiabank", "CIBC", "BMO", "Tangerine", "Desjardins",
          "National Bank", "HSBC Canada", "Simplii Financial", "Meridian Credit Union",
          "Vancity", "ATB Financial"]
 RETAILERS = ["Costco Wholesale Canada", "Walmart Canada", "Canadian Tire", "Loblaws",
              "Amazon.ca", "Best Buy Canada", "Shoppers Drug Mart"]
+MARKETPLACE_ITEMS = ["couch", "bike", "laptop", "winter coat", "PS5", "dining table", "dresser"]
 NAMES = ["John", "Sarah", "Mike", "Priya", "Alex", "Jordan", "Emma", "Liam", "Fatima", "Chris",
          "Dana", "Omar", "Grace", "Kevin", "Noor"]
 AMOUNTS = [20, 35, 50, 89.99, 120, 150, 200, 220, 251.76, 275, 300, 325, 340, 375, 415, 450,
@@ -53,6 +57,9 @@ DOMAINS_CPOST = ["canadapost-redelivery.com", "cpost-tracking.info", "canadapost
                  "cpost-redeliver.com", "canadapost-duty-pay.com", "cpost-fee-pay.net",
                  "canadapost-import-tax.com", "cpost-border-hold.net", "cpost-broker-fee.net",
                  "canadapost-address-confirm.com"]
+DOMAINS_BANK = ["td-secure-verify.com", "rbc-account-restore.net", "scotia-identity-confirm.com",
+                "cibc-unlock-account.net", "bmo-security-check.com", "bank-fraud-alert-verify.net",
+                "account-suspended-secure.com", "bank-identity-verify.net"]
 PHONES = ["1-800-555-0199", "437-555-0133", "1-888-555-0177", "1-855-555-0144",
           "647-555-0122", "1-866-555-0188", "1-877-555-0161"]
 YEARS = [2023, 2024, 2025]
@@ -79,6 +86,19 @@ ETRANSFER_TEMPLATES = [
     "{retailer}: Your 2% annual cashback of ${amt} is ready to be withdrawn through e-Transfer. Reply YES to claim.",
     "INTERAC e-Transfer: Remember to deposit your Tax Return of ${amt} from (C.R.A) Canada Revenue Agency by {date}.",
     "{bank} Interac Notice: Someone sent you ${amt}. Reply INFO to view the deposit link.",
+    "Hi, so sorry, I think I sent you an extra ${amt} by e-Transfer for the {item} by mistake. Could you send the difference back to this account?",
+    "Hey! Just e-Transferred you ${amt} for the {item}, but I think I fat-fingered the amount -- can you e-Transfer back the extra ${fee} once you see it land?",
+]
+
+BANK_TEMPLATES = [
+    "{bank} Alert: Your account has been suspended due to unusual activity. Verify immediately: {domain}",
+    "{bank}: Suspicious login detected on your account. Confirm your identity within {hrs} hours to avoid permanent lock: {domain}",
+    "{bank} Security Notice: Your online banking access has been restricted. Click to restore: {domain}",
+    "{bank}: We've noticed unusual activity on your account ending in {last4}. Verify now: {domain}",
+    "{bank} Fraud Alert: Unauthorized transaction of ${amt} detected. Confirm this was you or your card will be frozen: {domain}",
+    "{bank}: Your debit card has been temporarily blocked due to suspicious activity. Unblock here: {domain}",
+    "{bank} Notice: Your account access has been limited. Verify your identity to avoid closure: {domain}",
+    "URGENT from {bank}: Unusual sign-in attempt detected from a new device. Secure your account now: {domain}",
 ]
 
 CRA_TEMPLATES = [
@@ -143,6 +163,8 @@ LEGIT_TEMPLATES = [
     "Hi, confirming your flight check-in for {date}'s {time} departure is complete.",
     "Your GitHub pull request on {project} was approved and merged.",
     "Hey, loved your explanation of TF-IDF earlier, finally makes sense.",
+    "{bank}: A new sign-in to your account was detected from your iPhone just now. If this was you, no action is needed.",
+    "{bank} Security: Your one-time passcode is 384719. Don't share this code with anyone.",
 ]
 
 
@@ -163,13 +185,15 @@ def scam_placeholders():
         fee=random.choice(SMALL_FEES),
         bank=random.choice(BANKS),
         retailer=random.choice(RETAILERS),
+        item=random.choice(MARKETPLACE_ITEMS),
         name=random.choice(NAMES),
         hrs=random.choice(HOURS),
-        domain=random.choice(DOMAINS_ETRANSFER + DOMAINS_CRA + DOMAINS_CPOST),
+        domain=random.choice(DOMAINS_ETRANSFER + DOMAINS_CRA + DOMAINS_CPOST + DOMAINS_BANK),
         phone=random.choice(PHONES),
         year=random.choice(YEARS),
         track=random.choice(TRACK_IDS),
         date=random.choice(DATES),
+        last4=random.randint(1000, 9999),
     )
 
 
@@ -207,6 +231,9 @@ def main():
 
     for text in generate_class(CPOST_TEMPLATES, scam_placeholders, PER_CLASS):
         rows.append((text, "fake_canada_post"))
+
+    for text in generate_class(BANK_TEMPLATES, scam_placeholders, PER_CLASS):
+        rows.append((text, "fake_bank_alert"))
 
     for text in generate_class(LEGIT_TEMPLATES, legit_placeholders, PER_CLASS):
         rows.append((text, "legit"))
